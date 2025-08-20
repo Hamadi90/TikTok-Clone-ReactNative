@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Text,
   View,
@@ -6,42 +6,56 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
-  Dimensions
+  Dimensions,
+  FlatList
 } from "react-native";
 
 import TextTicker from "react-native-text-ticker";
-import VerticalViewPager from "react-native-vertical-view-pager";
 
 const { width, height = height - 50 } = Dimensions.get("window");
 
 import profile from "../../../assets/perfil-marlon.jpg";
 import iconPlus from "../../../assets/iconplus.png";
-import whiteHeart from "../../../assets/white-heart-fill.png";
-import redHeart from "../../../assets/red-heart.png";
-import comment from "../../../assets/comment.png";
-import iconMusic from "../../../assets/music.png";
-import whatsapp from "../../../assets/WhatsApp_Logo.png";
-
 import api from "../../services/api.js";
 
 import { Video } from "expo-av";
 
+import VideoInfo from "../../components/VideoInfo";
+import VideoActions from "../../components/VideoActions";
+
 function Feed() {
   const [feed, setfeed] = useState([]);
-  const [liked, setLiked] = useState(false);
+  const [currentItem, setCurrentItem] = useState(null);
 
-  function handleLike() {
-    setLiked(!liked);
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setCurrentItem(viewableItems[0].item.id);
+    }
+  });
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50
+  });
+
+  function handleLike(item) {
+    const newFeed = feed.map(feedItem => {
+      if (feedItem.id === item.id) {
+        return {
+          ...feedItem,
+          liked: !feedItem.liked
+        };
+      }
+      return feedItem;
+    });
+    setfeed(newFeed);
   }
 
   useEffect(() => {
     async function LoadFeed() {
       try {
         const response = await api.get("/feed?_expand=author&_limit=5");
-        const data = await response.data;
-        console.log(data);
+        const data = response.data.map(item => ({ ...item, liked: false }));
         setfeed(data);
-        console.log(feed);
       } catch (error) {
         console.log("Erro da busca: " + error);
       }
@@ -66,9 +80,13 @@ function Feed() {
         </View>
       </View>
       <View style={styles.container}>
-        <VerticalViewPager showsVerticalScrollIndicator={false}>
-          {feed.map(item => (
-            <View key={item.id} style={[styles.page_container, styles.post]}>
+        <FlatList
+          data={feed}
+          keyExtractor={item => item.id}
+          onViewableItemsChanged={onViewableItemsChanged.current}
+          viewabilityConfig={viewabilityConfig.current}
+          renderItem={({ item }) => (
+            <View style={[styles.page_container, styles.post]}>
               <View style={styles.video}>
                 <Video
                   source={{
@@ -80,88 +98,20 @@ function Feed() {
                   volume={1.0}
                   isMuted={true}
                   resizeMode="contain"
-                  shouldPlay
+                  shouldPlay={currentItem === item.id}
                   bounce={false}
                   isLooping
                   style={styles.videoPlayer}
                   useNativeControls={false}
                 />
               </View>
-              <View style={styles.content}>
-                <View style={styles.InnerContent}>
-                  <TouchableOpacity>
-                    <Text style={styles.name}>{item.author.name}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity>
-                    <Text style={styles.description} numberOfLines={5}>
-                      {item.description}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={styles.hashtags}>{item.hashtags}</Text>
-                  <TouchableOpacity>
-                    <Text style={styles.translate}>VER TRADUÇÂO</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.componentMusic}>
-                    <View style={styles.imageIconMusic}>
-                      <Image style={styles.iMusic} source={iconMusic} />
-                    </View>
-                    <TextTicker
-                      style={styles.nameMusic}
-                      duration={4000}
-                      loop
-                      bounce={false}
-                      repeatSpacer={70}
-                      marqueeDelay={1000}
-                      shouldAnimateTreshold={40}
-                    >
-                      I Don’t Care - Ed Sheeran Part Justin Bieber
-                    </TextTicker>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={styles.contentIcon}>
-                <View style={styles.contentIconProfile}>
-                  <TouchableOpacity>
-                    <Image
-                      source={{ uri: item.author.avatar }}
-                      style={styles.iconProfile}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity>
-                    <Image source={iconPlus} style={styles.iconPlusProfile} />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.iconsAction}>
-                  <View style={styles.contentIconAction}>
-                    <TouchableOpacity onPress={handleLike}>
-                      <Image
-                        source={liked ? redHeart : whiteHeart}
-                        style={styles.iconAction}
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.textActions}>153.1K</Text>
-                  </View>
-                  <TouchableOpacity style={styles.contentIconAction}>
-                    <Image source={comment} style={styles.iconAction} />
-                    <Text style={styles.textActions}>208</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.contentIconAction}>
-                    <Image source={whatsapp} style={styles.iconWhatsapp} />
-                    <Text style={styles.textActions}>Compar-tilhar</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.iconsMusic}>
-                  <TouchableOpacity>
-                    <Image
-                      source={{ uri: item.author.avatar }}
-                      style={styles.iconMusic}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <VideoInfo item={item} />
+              <VideoActions item={item} handleLike={handleLike} />
             </View>
-          ))}
-        </VerticalViewPager>
+          )}
+          pagingEnabled
+          showsVerticalScrollIndicator={false}
+        />
       </View>
     </SafeAreaView>
   );
@@ -220,102 +170,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 23,
     fontWeight: "bold"
-  },
-  content: {
-    width: "75%",
-    position: "absolute",
-    left: 0,
-    bottom: 0,
-    zIndex: 3
-  },
-  InnerContent: {
-    width: "100%",
-    position: "relative",
-    bottom: 0,
-    justifyContent: "flex-end",
-    paddingHorizontal: 10,
-    flexDirection: "column"
-  },
-
-  name: { color: "white", marginVertical: 3, fontSize: 15, fontWeight: "bold" },
-  description: { color: "white", marginTop: 2, fontSize: 15 },
-  hashtags: { color: "white", fontWeight: "bold" },
-  componentMusic: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 10,
-    width: 190
-  },
-  imageIconMusic: {
-    marginRight: 15
-  },
-  iMusic: {
-    width: 20,
-    height: 20,
-    resizeMode: "contain"
-  },
-  nameMusic: {
-    color: "white",
-    fontSize: 15
-  },
-  translate: {
-    fontWeight: "bold",
-    color: "white",
-    marginVertical: 5
-  },
-  contentIcon: {
-    width: "20%",
-    position: "absolute",
-    bottom: 11,
-    right: 0,
-    alignItems: "center",
-    zIndex: 3
-  },
-  contentIconProfile: {
-    alignItems: "center",
-    marginBottom: 2
-  },
-
-  iconProfile: {
-    width: 50,
-    height: 50,
-    resizeMode: "cover",
-    borderRadius: 25,
-    borderColor: "white",
-    borderWidth: 1
-  },
-  iconPlusProfile: {
-    height: 35,
-    width: 25,
-    position: "relative",
-    bottom: 20,
-    zIndex: 5,
-    resizeMode: "contain"
-  },
-  iconsAction: {
-    alignItems: "center",
-    marginBottom: 20
-  },
-  contentIconAction: {
-    alignItems: "center",
-    marginBottom: 13
-  },
-  iconAction: {
-    height: 40,
-    width: 40
-  },
-  iconWhatsapp: {
-    height: 40,
-    width: 40,
-    resizeMode: "cover",
-    borderRadius: 20
-  },
-  textActions: { color: "white", textAlign: "center", width: 54 },
-  iconMusic: {
-    width: 50,
-    height: 50,
-    resizeMode: "cover",
-    borderRadius: 30
   }
 });
 
