@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Image, Text } from "react-native";
+import { Image, Text, StyleSheet } from "react-native";
 
 import { createAppContainer } from "react-navigation";
 import { createBottomTabNavigator, BottomTabBar } from "react-navigation-tabs";
@@ -19,6 +19,14 @@ import search from "../../assets/search-grey.png";
 import plusTikTokWhite from "../../assets/plusTikTok-white.png";
 import home from "../../assets/home.png";
 
+const iconMap = {
+  Inicio: home,
+  Descobrir: search,
+  Plus: plusTikTokWhite,
+  "Caixa de Entrada": message,
+  Eu: userProfile
+};
+
 const Routes = createBottomTabNavigator(
   {
     Inicio: Feed,
@@ -35,37 +43,25 @@ const Routes = createBottomTabNavigator(
       activeTintColor: "white",
       inactiveTintColor: "grey",
       showLabel: false,
-      style: {
-        backgroundColor: "black",
-        height: 57,
-        borderTopColor: "grey",
-        borderTopWidth: 0.19,
-        paddingVertical: 7
-      }
+      style: styles.tabBar
     },
     defaultNavigationOptions: ({ navigation }) => ({
       tabBarIcon: ({ focused, horizontal, tintColor }) => {
         const { routeName } = navigation.state;
-        let IconComponent = FontAwesome5;
-        let IconName;
-
-        if (routeName === "Inicio") IconName = home;
-        else if (routeName === "Descobrir") IconName = search;
-        else if (routeName === "Plus") IconName = plusTikTokWhite;
-        else if (routeName === "Caixa de Entrada") IconName = message;
-        else if (routeName === "Eu") IconName = userProfile;
+        const IconName = iconMap[routeName];
+        const isPlus = routeName === "Plus";
 
         return (
           <>
             <Image
               source={IconName}
-              style={{
-                width: IconName === plusTikTokWhite ? 43 : 25,
-                height: IconName === plusTikTokWhite ? 28 : 25
-              }}
+              style={[
+                styles.icon,
+                isPlus ? styles.iconPlus : styles.iconDefault
+              ]}
             />
-            {routeName === "Plus" ? null : (
-              <Text style={{ color: "grey", fontSize: 10 }}>{routeName}</Text>
+            {isPlus ? null : (
+              <Text style={styles.label}>{routeName}</Text>
             )}
           </>
         );
@@ -73,5 +69,30 @@ const Routes = createBottomTabNavigator(
     })
   }
 );
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: "black",
+    height: 57,
+    borderTopColor: "grey",
+    borderTopWidth: 0.19,
+    paddingVertical: 7
+  },
+  icon: {
+    resizeMode: "contain"
+  },
+  iconDefault: {
+    width: 25,
+    height: 25
+  },
+  iconPlus: {
+    width: 43,
+    height: 28
+  },
+  label: {
+    color: "grey",
+    fontSize: 10
+  }
+});
 
 export default createAppContainer(Routes);
